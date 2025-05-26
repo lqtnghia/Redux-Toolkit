@@ -1,45 +1,43 @@
 import { configureStore } from "@reduxjs/toolkit";
-import counterReducer from "./slices/counter/counterSlice"; // Đổi từ features thành slices
-import todoReducer from "./slices/todo/todoSlice"; // Đổi từ features thành slices
-import themeReducer from "./slices/theme/themeSlice"; // Đổi từ features thành slices
+import { persistStore, persistReducer } from "redux-persist";
+import storage from "redux-persist/lib/storage"; // Dùng localStorage
+import counterReducer from "./slices/counter/counterSlice";
+import todoReducer from "./slices/todo/todoSlice";
+import themeReducer from "./slices/theme/themeSlice";
 
-// Lấy state từ localStorage
-const loadState = () => {
-  try {
-    const savedState = localStorage.getItem("reduxState");
-    if (savedState === null) {
-      return undefined;
-    }
-    return JSON.parse(savedState);
-  } catch (err) {
-    return undefined;
-  }
+// Cấu hình Redux Persist
+const persistConfig = {
+  key: "root", // Tên key lưu trong localStorage
+  storage // Sử dụng localStorage
 };
 
-// Lưu state vào localStorage
-const saveState = (state: any) => {
-  try {
-    const serializedState = JSON.stringify(state);
-    localStorage.setItem("reduxState", serializedState);
-  } catch (err) {
-    console.error("Lỗi khi lưu state:", err);
-  }
+// Gộp các reducer và áp dụng persistReducer
+const rootReducer = {
+  counter: counterReducer,
+  todos: todoReducer,
+  theme: themeReducer
 };
+
+const persistedReducer = persistReducer(persistConfig, (state, action) => {
+  // Kết hợp các reducer giống như configureStore
+  return {
+    counter: counterReducer(state?.counter, action),
+    todos: todoReducer(state?.todos, action),
+    theme: themeReducer(state?.theme, action)
+  };
+});
 
 // Tạo store
-const persistedState = loadState();
 const store = configureStore({
-  reducer: {
-    counter: counterReducer,
-    todos: todoReducer,
-    theme: themeReducer
-  },
-  preloadedState: persistedState
+  reducer: persistedReducer,
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        ignoredActions: ["persist/PERSIST"] // Bỏ qua cảnh báo cho action của Redux Persist
+      }
+    })
 });
 
-// Lưu state mỗi khi thay đổi
-store.subscribe(() => {
-  saveState(store.getState());
-});
-
+// Tạo persistor để sử dụng trong PersistGate
+export const persistor = persistStore(store);
 export default store;
